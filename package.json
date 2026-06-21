@@ -1,0 +1,30 @@
+{
+  "name": "download-video-webui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch src/server.ts",
+    "dev:client": "vite --host 127.0.0.1",
+    "build": "tsc -p tsconfig.server.json && vite build",
+    "start": "node dist/server/server.js",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "vue": "^3.5.25"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/node": "^24.10.2",
+    "vitest": "^3.2.4"
+  }
+}
