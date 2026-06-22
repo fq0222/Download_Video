@@ -39,6 +39,8 @@ export interface DirectoryOpenCommand {
   args: string[];
 }
 
+let openDirectoryChild: ChildProcess | undefined;
+
 /**
  * 判断当前进程是否运行在 pkg 打包后的环境中。
  *
@@ -136,10 +138,17 @@ export function buildDirectoryOpenCommand(
         quotePowerShellString(
           '[System.Runtime.InteropServices.DllImport("user32.dll")] ' +
             'public static extern bool ShowWindowAsync(System.IntPtr hWnd, int nCmdShow); ' +
-            '[System.Runtime.InteropServices.DllImport("user32.dll")] ' +
-            'public static extern bool SetForegroundWindow(System.IntPtr hWnd);'
+          '[System.Runtime.InteropServices.DllImport("user32.dll")] ' +
+            'public static extern bool SetForegroundWindow(System.IntPtr hWnd); ' +
+          '[System.Runtime.InteropServices.DllImport("user32.dll")] ' +
+            'public static extern bool SetWindowPos(System.IntPtr hWnd, System.IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);'
         ),
       'Add-Type -Namespace DownloadVideo -Name WindowTools -MemberDefinition $memberDefinition -ErrorAction Stop',
+      '$HWND_TOPMOST = [System.IntPtr]::op_Explicit(-1)',
+      '$HWND_NOTOPMOST = [System.IntPtr]::op_Explicit(-2)',
+      '$SWP_NOMOVE = 0x0002',
+      '$SWP_NOSIZE = 0x0001',
+      '$SWP_SHOWWINDOW = 0x0040',
       '$shell = New-Object -ComObject Shell.Application',
       '$wshell = New-Object -ComObject WScript.Shell',
       'Write-Output "[open-directory] shell-open"',
@@ -156,9 +165,13 @@ export function buildDirectoryOpenCommand(
       '        Write-Output ("[open-directory] matched-window hwnd=" + $window.HWND + " folder=" + $folder)',
       '        [DownloadVideo.WindowTools]::ShowWindowAsync([System.IntPtr]$window.HWND, 9) | Out-Null',
       '        [DownloadVideo.WindowTools]::ShowWindowAsync([System.IntPtr]$window.HWND, 5) | Out-Null',
+      '        $wshell.SendKeys("%")',
+      '        [DownloadVideo.WindowTools]::SetWindowPos([System.IntPtr]$window.HWND, $HWND_TOPMOST, 0, 0, 0, 0, $SWP_NOMOVE -bor $SWP_NOSIZE -bor $SWP_SHOWWINDOW) | Out-Null',
+      '        Start-Sleep -Milliseconds 80',
+      '        [DownloadVideo.WindowTools]::SetWindowPos([System.IntPtr]$window.HWND, $HWND_NOTOPMOST, 0, 0, 0, 0, $SWP_NOMOVE -bor $SWP_NOSIZE -bor $SWP_SHOWWINDOW) | Out-Null',
       '        $activated = $wshell.AppActivate($window.LocationName)',
       '        $foreground = [DownloadVideo.WindowTools]::SetForegroundWindow([System.IntPtr]$window.HWND)',
-      '        Write-Output ("[open-directory] app-activate=" + $activated + " set-foreground=" + $foreground)',
+      '        Write-Output ("[open-directory] app-activate=" + $activated + " set-foreground=" + $foreground + " alt-unlock=true topmost-toggle=true")',
       '        $matched = $true',
       '        break',
       '      }',
@@ -227,6 +240,11 @@ export function openBrowser(url: string): ChildProcess {
  * @returns 已启动的子进程对象。
  */
 export function openDirectory(directoryPath: string): ChildProcess {
+  if (openDirectoryChild && !openDirectoryChild.killed) {
+    console.log('[runtime] open directory already running', { directoryPath });
+    return openDirectoryChild;
+  }
+
   const { command, args } = buildDirectoryOpenCommand(directoryPath);
   console.log('[runtime] open directory command', {
     directoryPath,
@@ -237,17 +255,35 @@ export function openDirectory(directoryPath: string): ChildProcess {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: false
   });
+  openDirectoryChild = child;
+  const clearOpenDirectoryChild = (): void => {
+    if (openDirectoryChild === child) {
+      openDirectoryChild = undefined;
+    }
+  };
   child.stdout?.on('data', (chunk: Buffer) => {
     const message = chunk.toString('utf8').trim();
     if (message) {
       console.log('[runtime] open directory stdout', message);
     }
   });
+  child.stdout?.on('error', (error) => {
+    console.error('[runtime] open directory stdout stream error', {
+      directoryPath,
+      message: error.message
+    });
+  });
   child.stderr?.on('data', (chunk: Buffer) => {
     const message = chunk.toString('utf8').trim();
     if (message) {
       console.error('[runtime] open directory stderr', message);
     }
+  });
+  child.stderr?.on('error', (error) => {
+    console.error('[runtime] open directory stderr stream error', {
+      directoryPath,
+      message: error.message
+    });
   });
   child.on('error', (error) => {
     console.error('[runtime] open directory spawn error', {
@@ -256,6 +292,9 @@ export function openDirectory(directoryPath: string): ChildProcess {
       args,
       message: error.message
     });
+    clearOpenDirectoryChild();
   });
+  child.on('exit', clearOpenDirectoryChild);
+  child.on('close', clearOpenDirectoryChild);
   return child;
 }

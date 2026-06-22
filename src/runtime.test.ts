@@ -50,4 +50,14 @@ describe('buildDirectoryOpenCommand', () => {
     expect(script).toContain('SetForegroundWindow');
     expect(script).toContain('F:\\web-project\\Download_Video\\downloads');
   });
+
+  test('uses an ALT unlock and topmost toggle so packaged exe can foreground Explorer', () => {
+    const command = buildDirectoryOpenCommand('F:\\web-project\\Download_Video\\downloads', 'win32');
+    const script = command.args.at(-1) ?? '';
+
+    expect(script).toContain('SendKeys("%")');
+    expect(script).toContain('SetWindowPos');
+    expect(script).toContain('$HWND_TOPMOST');
+    expect(script).toContain('$HWND_NOTOPMOST');
+  });
 });

@@ -24,4 +24,14 @@ describe('open directory diagnostics', () => {
     expect(runtimeSource).toContain('[runtime] open directory command');
     expect(runtimeSource).toContain('[runtime] open directory spawn error');
   });
+
+  it('handles stdout and stderr stream errors from the open-directory child process', () => {
+    expect(runtimeSource).toContain('[runtime] open directory stdout stream error');
+    expect(runtimeSource).toContain('[runtime] open directory stderr stream error');
+  });
+
+  it('guards repeated open clicks while an open-directory process is still running', () => {
+    expect(runtimeSource).toContain('openDirectoryChild');
+    expect(runtimeSource).toContain('[runtime] open directory already running');
+  });
 });
