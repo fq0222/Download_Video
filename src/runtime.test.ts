@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import path from 'node:path';
-import { buildBrowserOpenCommand, resolveRuntimePaths } from './runtime.js';
+import { buildBrowserOpenCommand, buildDirectoryOpenCommand, resolveRuntimePaths } from './runtime.js';
 
 describe('resolveRuntimePaths', () => {
   test('uses the current working directory during normal Node execution', () => {
@@ -33,5 +33,21 @@ describe('buildBrowserOpenCommand', () => {
       command: 'cmd',
       args: ['/c', 'start', '', 'http://127.0.0.1:3000']
     });
+  });
+});
+
+describe('buildDirectoryOpenCommand', () => {
+  test('builds a Windows command that opens and foregrounds the download directory', () => {
+    const command = buildDirectoryOpenCommand('F:\\web-project\\Download_Video\\downloads', 'win32');
+    const script = command.args.at(-1) ?? '';
+
+    expect(command.command).toBe('powershell.exe');
+    expect(command.args).toContain('-WindowStyle');
+    expect(command.args).toContain('Hidden');
+    expect(script).toContain('explorer.exe');
+    expect(script).toContain('Shell.Application');
+    expect(script).toContain('ShowWindowAsync');
+    expect(script).toContain('SetForegroundWindow');
+    expect(script).toContain('F:\\web-project\\Download_Video\\downloads');
   });
 });

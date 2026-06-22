@@ -269,6 +269,20 @@ select:focus {
   word-break: break-all;
 }
 
+.job-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.directory-message {
+  margin: 10px 0 0;
+  color: #16644d;
+  font-size: 13px;
+  word-break: break-all;
+}
+
 .progress-track {
   height: 10px;
   margin: 14px 0 8px;
@@ -293,12 +307,14 @@ select:focus {
   font-size: 13px;
 }
 
-.command-detail {
+.command-detail,
+.log-detail {
   margin-top: 12px;
   font-size: 13px;
 }
 
-.command-detail summary {
+.command-detail summary,
+.log-detail summary {
   cursor: pointer;
   color: #33423f;
 }

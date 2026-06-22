@@ -40,6 +40,8 @@ const jobs = ref<DownloadJobSnapshot[]>([]);
 const health = ref<HealthInfo | null>(null);
 const errorMessage = ref('');
 const isSubmitting = ref(false);
+const isOpeningDownloadDirectory = ref(false);
+const downloadDirectoryMessage = ref('');
 const eventSources = new Map<string, EventSource>();
 
 const latestJob = computed(() => jobs.value[0]);
@@ -139,6 +141,49 @@ async function cancelJob(id: string): Promise<void> {
   const response = await fetch(`/api/downloads/${id}`, { method: 'DELETE' });
   if (response.ok) {
     upsertJob(await response.json());
+  }
+}
+
+/**
+ * 请求后端打开下载文件保存目录，并在任务区显示操作反馈。
+ */
+async function openDownloadDirectory(): Promise<void> {
+  errorMessage.value = '';
+  downloadDirectoryMessage.value = '';
+  isOpeningDownloadDirectory.value = true;
+  console.info('[download-directory] open clicked', {
+    healthDownloadDir: health.value?.downloadDir,
+    jobCount: jobs.value.length
+  });
+
+  try {
+    const response = await fetch('/api/download-directory/open', { method: 'POST' });
+    const payload = await response.json().catch(() => ({}));
+    console.info('[download-directory] open response', {
+      ok: response.ok,
+      status: response.status,
+      payload
+    });
+
+    if (!response.ok) {
+      throw new Error(payload.message || '打开下载目录失败');
+    }
+
+    const directoryPath = typeof payload.path === 'string' ? payload.path : health.value?.downloadDir;
+    const openedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    downloadDirectoryMessage.value = directoryPath
+      ? `已发送打开目录请求 ${openedAt}：${directoryPath}`
+      : `已发送打开目录请求 ${openedAt}`;
+    console.info('[download-directory] open accepted', {
+      directoryPath,
+      openedAt,
+      payload
+    });
+  } catch (error) {
+    console.error('[download-directory] open failed', error);
+    errorMessage.value = error instanceof Error ? error.message : '打开下载目录失败';
+  } finally {
+    isOpeningDownloadDirectory.value = false;
   }
 }
 
@@ -325,8 +370,20 @@ onMounted(async () => {
               <strong>{{ statusText(job.status) }}</strong>
               <p>{{ job.request.url }}</p>
             </div>
-            <button v-if="job.status === 'running'" type="button" class="ghost-button" @click="cancelJob(job.id)">取消</button>
+            <div class="job-actions">
+              <button
+                type="button"
+                class="ghost-button"
+                :disabled="isOpeningDownloadDirectory"
+                @click="openDownloadDirectory"
+              >
+                {{ isOpeningDownloadDirectory ? '打开中...' : '打开' }}
+              </button>
+              <button v-if="job.status === 'running'" type="button" class="ghost-button" @click="cancelJob(job.id)">取消</button>
+            </div>
           </div>
+
+          <p v-if="downloadDirectoryMessage" class="directory-message">{{ downloadDirectoryMessage }}</p>
 
           <div class="progress-track">
             <div class="progress-bar" :style="{ width: `${Math.min(job.progress.percent ?? 0, 100)}%` }"></div>
@@ -336,7 +393,6 @@ onMounted(async () => {
             <span>{{ job.progress.percent?.toFixed(1) ?? '0.0' }}%</span>
             <span v-if="job.progress.speed">{{ job.progress.speed }}</span>
             <span v-if="job.progress.eta">ETA {{ job.progress.eta }}</span>
-            <span v-if="job.exitCode !== undefined && job.exitCode !== null">退出码 {{ job.exitCode }}</span>
           </div>
 
           <details class="command-detail">
@@ -344,7 +400,10 @@ onMounted(async () => {
             <code>{{ job.commandPreview }}</code>
           </details>
 
-          <pre class="log-box">{{ visibleLogs(job).join('\n') }}</pre>
+          <details class="log-detail">
+            <summary>输出</summary>
+            <pre class="log-box">{{ visibleLogs(job).join('\n') }}</pre>
+          </details>
         </article>
       </section>
     </section>
