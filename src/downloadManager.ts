@@ -340,7 +340,9 @@ export function buildYtDlpEnvironment(
 ): NodeJS.ProcessEnv {
   return {
     ...baseEnv,
-    PATH: `${path.dirname(ytDlpPath)}${path.delimiter}${baseEnv.PATH ?? ''}`
+    PATH: `${path.dirname(ytDlpPath)}${path.delimiter}${baseEnv.PATH ?? ''}`,
+    PYTHONIOENCODING: 'utf-8',
+    PYTHONUTF8: '1'
   };
 }
 
@@ -355,7 +357,7 @@ export function resolveYtDlpOutputEncoding(baseEnv: NodeJS.ProcessEnv): YtDlpOut
     return baseEnv.YT_DLP_OUTPUT_ENCODING;
   }
 
-  return process.platform === 'win32' ? 'gb18030' : 'utf-8';
+  return 'utf-8';
 }
 
 /**

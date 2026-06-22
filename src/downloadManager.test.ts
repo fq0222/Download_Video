@@ -13,8 +13,8 @@ describe('buildYtDlpEnvironment', () => {
     const env = buildYtDlpEnvironment(ytDlpPath, { PATH: 'C:\\Windows\\System32' });
 
     expect(env.PATH).toBe(`${path.dirname(ytDlpPath)}${path.delimiter}C:\\Windows\\System32`);
-    expect(env.PYTHONIOENCODING).toBeUndefined();
-    expect(env.PYTHONUTF8).toBeUndefined();
+    expect(env.PYTHONIOENCODING).toBe('utf-8');
+    expect(env.PYTHONUTF8).toBe('1');
   });
 });
 
@@ -22,6 +22,10 @@ describe('resolveYtDlpOutputEncoding', () => {
   it('允许通过环境变量覆盖 yt-dlp 输出解码编码', () => {
     expect(resolveYtDlpOutputEncoding({ YT_DLP_OUTPUT_ENCODING: 'utf-8' })).toBe('utf-8');
     expect(resolveYtDlpOutputEncoding({ YT_DLP_OUTPUT_ENCODING: 'gb18030' })).toBe('gb18030');
+  });
+
+  it('默认使用 UTF-8，避免打包后的 Node 运行时缺少 gb18030 解码支持', () => {
+    expect(resolveYtDlpOutputEncoding({})).toBe('utf-8');
   });
 });
 
